@@ -4,7 +4,7 @@
 % Written on August 2022
 % 
 
-function bf = beamforming3D_kernel(RData,Receive,TX,Trans,P);
+function bf = beamforming3D_GPU_kernel(RData,Receive,TX,Trans,P);
 speedOfSound=1540; % m/s
 invSpeedOfSound=1/speedOfSound; % s/m
 freq=Trans.frequency*1e6; % wavelengths/s

@@ -17,7 +17,7 @@ __constant__ int sampleDim;
 __constant__ float sensCutoff;
 __constant__ float elementSens[101];
 
-__global__ void beamforming3D_cuda_v4(
+__global__ void beamforming3D_GPU_cuda(
 	float2* bf,
     const short* __restrict__ RData,
     const float* __restrict__ grid_X,

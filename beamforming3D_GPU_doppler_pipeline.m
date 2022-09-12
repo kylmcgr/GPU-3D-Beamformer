@@ -4,7 +4,7 @@
 % Written on August 2022
 % 
 
-function IQs = beamforming3D_doppler_pipeline(dir_save);
+function IQs = beamforming3D_GPU_doppler_pipeline(dir_save);
 % Open RData matrix   
 load([dir_save 'P.mat']);
 load([dir_save 'Receive.mat']);
