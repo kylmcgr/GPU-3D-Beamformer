@@ -43,9 +43,9 @@ rcv_startSamples = [Receive.startSample];
 rcv_endSamples = [Receive.endSample];
 
 g = gpuDevice;
-kernel_name = 'beamforming3D_cuda_v4';
+kernel_name = 'beamforming3D_GPU_cuda';
 % bf_flag = 'beamforming3D_cuda_v1';
-system('nvcc beamforming3D_cuda_v4.cu -ptx -o beamforming3D_cuda_v4.ptx'); % compileCUDA(kernel_name)
+system('nvcc beamforming3D_GPU_cuda.cu -ptx -o beamforming3D_GPU_cuda.ptx'); % compileCUDA(kernel_name)
 
 % fprintf('\n\t%d dopplers, %d IQ per dop, %d frame per dop, %d IQ per frame\n', P.numDopImages, P.numIQperDopplerIm, P.numIQperDopplerIm/P.IQperRcvFrame, P.IQperRcvFrame);
 IQs = zeros(P.numDopImages,P.numIQperDopplerIm,length(X),length(Y),length(Z));

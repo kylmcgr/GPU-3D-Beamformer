@@ -1,23 +1,20 @@
-%% GPU beamformer kernel for 3D IQ data single image
+%% GPU beamformer kernel for 2D IQ data single image
 % Beamforms a single image given RData,Receive,TX,P,Trans objects
 % Author - Kyle McGraw
-% Written on August 2022
+% Written on January 2023
 % 
 
-function bf = beamforming3D_GPU_kernel(RData,Receive,TX,Trans,P);
+function bf = beamforming2D_GPU_kernel(RData,Receive,TX,Trans,P);
 speedOfSound=1540; % m/s
 invSpeedOfSound=1/speedOfSound; % s/m
 freq=Trans.frequency*1e6; % wavelengths/s
 lambda=speedOfSound/freq; % m
 Senscutoff=0.6; % cutoff for ElementSens value, 0.6 is default, should correspond to 9.8 degrees off axis
 
-xPiezo = Trans.ElementPos(1:32,1)*1e-3; % x position of 1024 elements -> 32
-yPiezo = Trans.ElementPos(1:32:end,2)*1e-3; % y position of 1024 elements -> 32
-% zPiezo = Trans.ElementPos(:,3)*1e-3; % z position of 1024 elements, should be all 0
+xPiezo = Trans.ElementPos(:,1)*1e-3; % x position of 128 elements
 
 X=((0:P.PData.Size(1)-1)+P.PData.Origin(1))*lambda; % Size of matrix that we are imaging
-Y=(-(0:P.PData.Size(2)-1)+P.PData.Origin(2))*lambda; % Size in wavelength, starting at origin, changed to m
-Z=P.startDepth_mm*1e-3:lambda:P.endDepth_mm*1e-3;
+Z=P.startDepth*1e-3:lambda:P.endDepth*1e-3;
 
 % Might need to check on this, but should work for most cases of direct and
 % light transmissions
@@ -37,12 +34,10 @@ else
 end
 
 % Send all the data to GPU memory
-bf=gpuArray(complex(single(zeros(length(X),length(Y),length(Z)))));
+bf=gpuArray(complex(single(zeros(length(X),length(Z)))));
 grid_X=gpuArray(single(X));
-grid_Y=gpuArray(single(Y));
 grid_Z=gpuArray(single(Z));
 piezo_X=gpuArray(single(xPiezo));
-piezo_Y=gpuArray(single(yPiezo));
 idxs_TX=gpuArray(int32(TX_indices));
 TX_apertures=gpuArray(int32([TX.aperture]));
 RCV_apertures=gpuArray(int32([Receive.aperture]));
@@ -52,18 +47,16 @@ endSamples=gpuArray(int32([Receive.endSample]));
 data=gpuArray(int16(RData));
 
 g = gpuDevice;
-kernel_name = 'beamforming3D_GPU_cuda';
-% bf_flag = 'beamforming3D_cuda_v1';
-system('nvcc beamforming3D_GPU_cuda.cu -ptx -o beamforming3D_GPU_cuda.ptx'); % compileCUDA(kernel_name)
+kernel_name = 'beamforming2D_GPU_cuda';
+% bf_flag = 'beamforming2D_cuda_v1';
+system('nvcc beamforming2D_GPU_cuda.cu -ptx -o beamforming2D_GPU_cuda.ptx'); % compileCUDA(kernel_name)
 k = parallel.gpu.CUDAKernel([kernel_name '.ptx'],[kernel_name '.cu']); % ,bf_flag);
 
 setConstantMemory(k,...
     'invSpeedOfSound',single(invSpeedOfSound),...
     'xPixLen',int32(length(X)),...
-    'yPixLen',int32(length(Y)),...
     'zPixLen',int32(length(Z)),...
     'xPiezoLen',int32(length(xPiezo)),...
-    'yPiezoLen',int32(length(yPiezo)),... %     'zPiezo',int32(zPiezo),...
     'receiveLen',int32(length(TX)),...
     'freq',single(freq),...
     'pi',single(pi),...
@@ -82,14 +75,14 @@ else
     k.ThreadBlockSize = [16 2 8];
 end
 
-dataSize = [length(X) length(Y) length(Z)];
+dataSize = [length(X) length(Z)];
 
 % set grid size
-k.GridSize = ceil([dataSize(1)/k.ThreadBlockSize(1),dataSize(2)/k.ThreadBlockSize(2),dataSize(3)/k.ThreadBlockSize(3)]);
+k.GridSize = ceil([dataSize(1)/k.ThreadBlockSize(1),dataSize(2)/k.ThreadBlockSize(2)]);
 
 k.SharedMemorySize = 0;
 
-bf=feval(k,bf,data,grid_X,grid_Y,grid_Z,piezo_X,piezo_Y,idxs_TX,TX_apertures,RCV_apertures,angleDelays,startSamples,endSamples);
+bf=feval(k,bf,data,grid_X,grid_Z,piezo_X,idxs_TX,TX_apertures,RCV_apertures,angleDelays,startSamples,endSamples);
 bf=gather(bf);
 bf=permute(bf,[2 1 3]); % To make same dimensions as Verasonics beamformer
 
